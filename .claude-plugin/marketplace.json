@@ -1,0 +1,18 @@
+{
+  "name": "perspective-cro-autopilot",
+  "owner": {
+    "name": "Perspective",
+    "url": "https://www.perspective.co"
+  },
+  "metadata": {
+    "description": "CRO Autopilot: weekly, statistically decided A/B testing for Perspective funnels, as a Claude plugin."
+  },
+  "plugins": [
+    {
+      "name": "perspective-cro-autopilot",
+      "source": "./perspective-cro-autopilot",
+      "description": "Weekly conversion optimization for Perspective funnels, with Client Mode reports and same-industry rollout.",
+      "version": "0.2.0"
+    }
+  ]
+}

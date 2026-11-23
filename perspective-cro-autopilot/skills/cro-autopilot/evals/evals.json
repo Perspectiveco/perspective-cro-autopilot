@@ -1,0 +1,29 @@
+{
+  "skill_name": "cro-autopilot",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I've connected Perspective. Set up the weekly optimization on my live funnels in review mode and tell me what you'd test first on the busiest one.",
+      "expected_output": "Lists workspaces and live funnels with 28-day sessions and conversion rate, marks AI/HTML vs classic, asks which to enroll and confirms review mode, writes .cro-autopilot/config.json, diagnoses the busiest funnel from real page-to-page data (step, visitors lost, dwell, device split), writes a pre-registered hypothesis to state, creates the experiment with create_experiment, verifies the variant, and asks before publishing (which starts it).",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "it's monday, run the weekly cro pass. the headline experiment on the webinar landing page funnel has been running since the 21st, is it done? should we ship it?",
+      "expected_output": "Reads get_experiment_results, passes its message on, runs scripts/ab_decision.py with sessions/conversions per version and planned vs elapsed days, reports the verdict table, the chance the variant is better and the informed suggestion, distinguishes Perspective's progress from that chance, and either asks to end the experiment with an explicit version (review) or ends it on a proven verdict (auto). Logs with log_test.py and designs the next test. Ends with the run report.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "The outcome-first headline won on Sunrise Solar's quote funnel. Write the client report and roll it out to their other two funnels and to Helios Energy, they're also solar.",
+      "expected_output": "Produces the Client Mode win report (plain language, before/after table with views and rates, confidence in words, estimated monthly lead impact, next test, history table), saved under .cro-autopilot/reports/. Shows a rollout table of candidate funnels across both named clients with industry and current continue rate, asks for one batch confirmation naming each client, then starts the winner as a new A/B test on each target (adapted copy, no cross-client specifics), skips funnels with a running test, parks funnels without a variant slot, logs the rollout, and never sends the report to the client itself.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "the test on the solar quote funnel is at 84% chance the variant is better but perspective still says not significant, what do we do?",
+      "expected_output": "Explains that Perspective's confidence/progress measures how far the test is from an answer while 84% is the chance the variant is better; shows the worst plausible downside from the interval and days to proof; gives the lean_ship suggestion as the user's call (ship now and move on, or keep running); does not end the experiment without an explicit choice; if the user chooses to ship, ends it keeping the variant and logs the decision as an override with the 84% figure.",
+      "files": []
+    }
+  ]
+}

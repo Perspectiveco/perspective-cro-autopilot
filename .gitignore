@@ -1,0 +1,13 @@
+# local working folders
+cro-autopilot-workspace/
+staging-test/
+live-test/
+dist/
+assets-src/
+.cro-autopilot/
+*.zip
+
+# system
+.DS_Store
+__pycache__/
+*.pyc
