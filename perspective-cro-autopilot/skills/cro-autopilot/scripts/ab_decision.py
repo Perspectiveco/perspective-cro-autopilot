@@ -59,9 +59,23 @@ def two_proportion(views_a, conv_a, views_b, conv_b):
     p_two = 2 * (1 - _norm_cdf(abs(z)))
     se_diff = math.sqrt(pa * (1 - pa) / views_a + pb * (1 - pb) / views_b)
     ci = ((pb - pa) - 1.96 * se_diff, (pb - pa) + 1.96 * se_diff)
-    rel = (pb - pa) / pa if pa else float("nan")
+    rel = (pb - pa) / pa if pa else None  # no relative lift when the original has converted nobody
     return dict(rate_a=pa, rate_b=pb, abs_diff=pb - pa, rel_lift=rel, z=z, p_value=p_two,
                 ci95_abs=ci, prob_b_better=_norm_cdf(z))
+
+
+def _pct(x, nd=1):
+    """A fraction as a rounded percent; None stays None."""
+    return None if x is None else round(x * 100, nd)
+
+
+def _share(value):
+    """--expected-share-a: Perspective reports weights in percent (70); a fraction (0.7) works too."""
+    share = float(value)
+    share = share / 100 if share > 1 else share
+    if not 0 < share < 1:
+        raise argparse.ArgumentTypeError("must be between 0 and 1, or 0 and 100 as a percent")
+    return share
 
 
 def srm(views_a, views_b, expected_share_a=0.5):
@@ -85,7 +99,7 @@ def sample_needed_per_arm(base_rate, mde_rel, alpha=0.05, power=0.8):
     return math.ceil(num / (p2 - p1) ** 2)
 
 
-def informed_suggestion(verdict, r, args, at_end, days_needed_total):
+def informed_suggestion(verdict, r, args, at_end, days_needed_total, too_few):
     """A plain-language call for the user when the stats alone do not settle it.
 
     The chance figure is P(variant > original) from the normal approximation of the
@@ -97,12 +111,14 @@ def informed_suggestion(verdict, r, args, at_end, days_needed_total):
     lo_pp, hi_pp = r["ci95_abs"][0] * 100, r["ci95_abs"][1] * 100
     if verdict == "invalid":
         return {"call": "fix_setup", "text": "Not a readable test until the traffic split is fixed."}
-    if verdict in ("ship_a", "ship_b"):
-        w = "variant" if verdict == "ship_b" else "original"
-        return {"call": "ship_" + w, "leader": w, "chance_leader_better_pct": pct if w == "variant" else 100 - pct,
-                "text": f"Proven: {pct}% chance the variant is better; ship the {w}."}
-    leader = "variant" if pb >= 0.5 else "original"
+    if too_few:  # below the minimum volume no call is offered, not even a lean one
+        return {"call": "too_early",
+                "text": f"Too few visitors to call either way (under {args.min_views_per_arm} per version). Keep running."}
+    leader = "variant" if pb >= 0.5 else "original"  # a ship verdict always picks this side too
     lead_pct = pct if leader == "variant" else 100 - pct
+    if verdict in ("ship_a", "ship_b"):
+        return {"call": "ship_" + leader, "leader": leader, "chance_leader_better_pct": lead_pct,
+                "text": f"Proven: {lead_pct}% chance the {leader} is better; ship the {leader}."}
     downside = (-lo_pp) if leader == "variant" else hi_pp  # worst plausible loss if the leader is actually worse
     powered = days_needed_total is not None and days_needed_total <= args.elapsed_days
     more = None if powered or not days_needed_total else max(days_needed_total - args.elapsed_days, 1)
@@ -110,8 +126,10 @@ def informed_suggestion(verdict, r, args, at_end, days_needed_total):
             " than keep waiting (the test already had enough traffic to show a 15% lift, so the true effect is smaller than that)")
     if lead_pct >= 80:
         call = f"lean_ship_{leader}"
-        text = (f"Not proven, but {lead_pct}% chance the {leader} is better; worst plausible downside about "
-                f"{downside:.1f} points. Reasonable to ship the {leader} now if you would rather move on to the next test{wait}.")
+        risk = (f"worst plausible downside about {downside:.1f} points" if downside > 0 else
+                f"even the worst plausible case is {abs(downside):.1f} points better")
+        text = (f"Not proven, but {lead_pct}% chance the {leader} is better; {risk}. "
+                f"Reasonable to ship the {leader} now if you would rather move on to the next test{wait}.")
     elif lead_pct >= 65:
         call = "keep_running_or_lean_" + leader
         if not at_end:
@@ -137,13 +155,14 @@ def decide_ab(args):
     s = srm(args.views_a, args.views_b, args.expected_share_a)
     at_end = args.elapsed_days >= args.planned_days
     min_per_arm = args.min_views_per_arm
+    too_few = min(args.views_a, args.views_b) < min_per_arm
     needed = sample_needed_per_arm(r["rate_a"], args.mde_rel) if r["rate_a"] > 0 else float("inf")
     views_per_day = (args.views_a + args.views_b) / max(args.elapsed_days, 1) / 2
     days_needed_total = math.ceil(needed / views_per_day) if views_per_day > 0 and needed != float("inf") else None
 
     if s["failed"]:
         verdict, action = "invalid", "Sample ratio mismatch: the arms are not being served evenly. Check the test setup in Perspective before reading anything else."
-    elif min(args.views_a, args.views_b) < min_per_arm:
+    elif too_few:
         verdict, action = "keep_running", f"Under {min_per_arm} views per arm; any difference is still noise."
     elif not at_end and abs(r["z"]) >= args.early_z:
         verdict = "ship_b" if r["z"] > 0 else "ship_a"
@@ -157,13 +176,13 @@ def decide_ab(args):
         verdict, action = "no_difference", "Planned runtime complete, no significant difference. Keep the original and test a bolder change next."
 
     winner = {"ship_a": "original", "ship_b": "variant"}.get(verdict)
-    suggestion = informed_suggestion(verdict, r, args, at_end, days_needed_total)
+    suggestion = informed_suggestion(verdict, r, args, at_end, days_needed_total, too_few)
     out = dict(mode="ab", verdict=verdict, winner=winner, action=action,
                chance_variant_better_pct=round(r["prob_b_better"] * 100, 1),
                suggestion=suggestion,
                original=dict(views=args.views_a, conversions=args.conv_a, rate=round(r["rate_a"], 4)),
                variant=dict(views=args.views_b, conversions=args.conv_b, rate=round(r["rate_b"], 4)),
-               abs_diff_pp=round(r["abs_diff"] * 100, 2), rel_lift_pct=round(r["rel_lift"] * 100, 1),
+               abs_diff_pp=round(r["abs_diff"] * 100, 2), rel_lift_pct=_pct(r["rel_lift"]),
                ci95_abs_pp=[round(x * 100, 2) for x in r["ci95_abs"]], z=round(r["z"], 3),
                p_value=round(r["p_value"], 4), prob_variant_better=round(r["prob_b_better"], 3),
                srm=dict(chi2=round(s["chi2"], 2), p_value=round(s["p_value"], 4), failed=s["failed"]),
@@ -181,7 +200,7 @@ def decide_seq(args):
         verdict, action = "keep_running", f"Under {args.min_views_per_arm} views in one of the windows; wait."
     elif not at_end:
         verdict, action = "keep_running", f"Comparison window not complete ({args.elapsed_days}/{args.planned_days} days)."
-    elif r["z"] >= args.seq_z and r["rel_lift"] >= args.seq_min_rel_lift:
+    elif r["z"] >= args.seq_z and (r["rel_lift"] is None or r["rel_lift"] >= args.seq_min_rel_lift):
         verdict, action = "keep_change", "After-window clearly better than before. Keep the change, but record it as a before/after read, not an A/B result."
     elif r["z"] <= -args.seq_z:
         verdict, action = "revert", "After-window clearly worse. Revert the change."
@@ -190,7 +209,7 @@ def decide_seq(args):
     return dict(mode="sequential", verdict=verdict, action=action,
                 before=dict(views=args.views_before, conversions=args.conv_before, rate=round(r["rate_a"], 4)),
                 after=dict(views=args.views_after, conversions=args.conv_after, rate=round(r["rate_b"], 4)),
-                abs_diff_pp=round(r["abs_diff"] * 100, 2), rel_lift_pct=round(r["rel_lift"] * 100, 1),
+                abs_diff_pp=round(r["abs_diff"] * 100, 2), rel_lift_pct=_pct(r["rel_lift"]),
                 ci95_abs_pp=[round(x * 100, 2) for x in r["ci95_abs"]], z=round(r["z"], 3),
                 p_value=round(r["p_value"], 4),
                 runtime=dict(planned_days=args.planned_days, elapsed_days=args.elapsed_days, at_planned_end=at_end),
@@ -213,7 +232,8 @@ def fmt_table(out):
     lines = ["| " + " | ".join(str(c) for c in rows[0]) + " |", "|---|---:|---:|"]
     lines += ["| " + " | ".join(str(c) for c in r) + " |" for r in rows[1:]]
     lines.append("")
-    lines.append(f"Difference: {out['abs_diff_pp']:+.2f} pp ({out['rel_lift_pct']:+.1f}% relative), "
+    rel = "n/a" if out["rel_lift_pct"] is None else f"{out['rel_lift_pct']:+.1f}%"
+    lines.append(f"Difference: {out['abs_diff_pp']:+.2f} pp ({rel} relative), "
                  f"95% CI {out['ci95_abs_pp'][0]:+.2f} to {out['ci95_abs_pp'][1]:+.2f} pp, z = {out['z']}, p = {out['p_value']}")
     if out["mode"] == "ab":
         lines.append(f"SRM: chi2 = {out['srm']['chi2']}, p = {out['srm']['p_value']} ({'FAILED' if out['srm']['failed'] else 'ok'})")
@@ -240,7 +260,7 @@ def main(argv=None):
     ab.add_argument("--conv-b", type=int, required=True)
     ab.add_argument("--planned-days", type=int, required=True)
     ab.add_argument("--elapsed-days", type=int, required=True)
-    ab.add_argument("--expected-share-a", type=float, default=0.5)
+    ab.add_argument("--expected-share-a", type=_share, default=0.5)
     ab.add_argument("--min-views-per-arm", type=int, default=200)
     ab.add_argument("--early-z", type=float, default=2.4)
     ab.add_argument("--mde-rel", type=float, default=0.15, help="relative lift the test is sized for (0.15 = 15%%)")
