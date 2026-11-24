@@ -74,7 +74,7 @@ The script returns a verdict, the **chance the variant is better**, and an **inf
 
 - `ship_b` / `ship_a` (significant): go to step 4.
 - `no_difference` or `keep_running` with a `lean_ship_*` suggestion (80%+ chance one version is better, bounded downside): in review mode present the suggestion with the numbers and let the user choose ship / keep running / stop; in auto mode keep running until the planned end, then ask (never end on a lean call unasked).
-- `keep_running`: one-line status in the report, next funnel.
+- `keep_running`: one-line status in the report, next funnel. With the suggestion `too_early` (under 200 sessions per version) never offer a ship call, whatever the chance figure says.
 - `no_difference` at the planned end, coin-flip range: end the experiment keeping the **original** (auto) or recommend that (review), log it, design a bolder test on the same leak.
 - `invalid` (sample ratio mismatch): report it, check the weights with `get_experiment`, do not read the numbers.
 
