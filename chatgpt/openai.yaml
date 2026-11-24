@@ -1,0 +1,12 @@
+interface:
+  display_name: "CRO Autopilot"
+  short_description: "Weekly A/B tests on your Perspective funnels, called by math and logged"
+  default_prompt: "Run this week's CRO Autopilot pass on my Perspective funnels."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "perspective"
+      description: "Perspective MCP: funnels, metrics and A/B experiments"
+      transport: "streamable_http"
+      url: "https://api.perspective.co/mcp"

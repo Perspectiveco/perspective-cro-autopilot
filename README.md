@@ -1,4 +1,4 @@
-# CRO Autopilot — a Claude plugin for Perspective funnels
+# CRO Autopilot — a Claude plugin and ChatGPT skill for Perspective funnels
 
 ![CRO Autopilot: a weekly A/B test on every funnel, decided by math and logged](assets/hero.png)
 
@@ -87,6 +87,39 @@ Then start Claude in an empty folder for your CRO work and run `/cro-setup`. The
 
 The skill-only install has no slash commands; just describe what you want. On claude.ai, files don't carry over from one chat to the next, so the test log doesn't either. For the weekly loop with a lasting log, use Claude Code.
 
+## Use it in ChatGPT
+
+The same skill runs in ChatGPT. Download [`cro-autopilot-chatgpt.zip`](cro-autopilot-chatgpt.zip) from this repo.
+
+**Use the ChatGPT desktop app with a folder** for the weekly loop. The folder keeps the test log, so each week builds on the last, and the weekly run happens without you. ChatGPT on the web works too, but there you carry the test log from week to week as a file (see below).
+
+You need:
+- the **ChatGPT desktop app** (macOS or Windows) and **ChatGPT Work**. Plan on a paid plan (Plus or higher); Free and Go get Work in the desktop app only where OpenAI has rolled it out.
+- the **Perspective MCP** connected to ChatGPT: [how to connect the Perspective MCP with ChatGPT](https://intercom.help/perspective-funnels/en/articles/15533402-how-to-connect-perspective-mcp-in-chatgpt). In the desktop app: **Settings → MCP servers → Add server**, name `Perspective`, **Streamable HTTP**, URL `https://api.perspective.co/mcp`, then **Authenticate**. On Business and Enterprise plans, your workspace admin adds it first.
+- **Python 3** on your computer. The skill runs small Python scripts to call each test.
+
+Set it up:
+1. Make an empty folder for your CRO work, for example `CRO Autopilot`. In the desktop app, create a project and add the folder to it (project menu → **Edit project → Add folder**).
+2. Install the skill:
+   - **Business, Enterprise or Edu:** **Plugins → Skills → Create → Upload from your computer**, then pick `cro-autopilot-chatgpt.zip`. ChatGPT scans it before it is ready.
+   - **Any plan, desktop app:** unzip `cro-autopilot-chatgpt.zip` into `.agents/skills/` inside your CRO folder, so the folder contains `.agents/skills/cro-autopilot/SKILL.md`.
+3. Start a Work chat in that project and say: *"Set up CRO Autopilot for my Perspective funnels."* (or type `@` and pick `cro-autopilot`).
+
+There are no slash commands in ChatGPT. Say what you want instead:
+
+| In Claude Code | In ChatGPT, say |
+|---|---|
+| `/cro-setup` | *"Set up CRO Autopilot"* |
+| `/cro-weekly` | *"Run the weekly CRO"* |
+| `/cro-report <funnel>` | *"Client report for <funnel>"* |
+| `/cro-rollout <winner>` | *"Roll out the <funnel> winner"* |
+
+**Make it weekly.** At the end of setup, say *"Schedule the weekly CRO run every Monday at 9:00 in this project."* ChatGPT creates a scheduled task that runs in your CRO folder. Keep the computer on and the ChatGPT app running at that time. In auto mode nobody needs to be there. In review mode, and whenever ChatGPT holds a Perspective action for your approval, the run report lists what is waiting for you.
+
+**On ChatGPT on the web** (no folder), the skill keeps its settings and test log in one file, `cro-autopilot-memory.zip`, and hands you the new version at the end of every run. Keep it, attach it to next week's chat and say *"Run the weekly CRO"*. A scheduled task on the web can't reach that file, so the skill sets up a weekly reminder instead of an unattended run. Uploading a skill on the web needs a Business, Enterprise or Edu plan.
+
+To rebuild the zip after changing the skill, run `python3 chatgpt/build.py`; it fails if a swapped line changed or Claude-only text is left.
+
 ## Commands
 
 | Command | What it does |
@@ -123,7 +156,9 @@ In Claude Code, schedule `/cro-weekly` once a week with `/schedule`, pointed at 
 .
 ├── README.md
 ├── cro-autopilot.skill                 # installable skill for the Claude desktop app and claude.ai
+├── cro-autopilot-chatgpt.zip           # the same skill for ChatGPT (built by chatgpt/build.py)
 ├── .claude-plugin/marketplace.json     # makes this repo a Claude Code plugin marketplace
+├── chatgpt/                            # ChatGPT build: build.py, chatgpt.md (memory, scheduling), openai.yaml
 ├── assets/                             # images in this README
 └── perspective-cro-autopilot/          # the plugin
     ├── .claude-plugin/plugin.json
