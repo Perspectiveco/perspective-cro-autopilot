@@ -1,7 +1,7 @@
 {
   "name": "perspective-cro-autopilot",
   "description": "Weekly conversion optimization for Perspective funnels: finds the step losing the most people, builds a first-page variant, starts the A/B test, keeps a learnings log, ships winners, and in Client Mode writes client reports and rolls winners out across same-industry funnels.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": {
     "name": "Perspective"
   },

@@ -11,7 +11,7 @@ Reading early and stopping when it looks good is the easiest way to ship noise. 
 ## Gates, in order
 
 1. **Sample ratio mismatch** (chi-square on sessions, p < 0.001): the versions are not served as weighted; invalid until fixed. Pass `--expected-share-a` when the experiment's weights are not 50/50.
-2. **Minimum volume:** under 200 sessions per version, keep running whatever the rates say.
+2. **Minimum volume:** under 200 sessions per version, keep running whatever the rates say. The suggestion is `too_early` then: no ship call, not even a lean one.
 3. **Early stop:** before the planned end, only `|z| ≥ 2.4`.
 4. **Planned end:** `|z| ≥ 1.96` ships the leader; otherwise no difference.
 
